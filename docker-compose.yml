@@ -6,7 +6,11 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=file:/app/prisma/dev.db
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/data/dev.db
     volumes:
-      - ./prisma:/app/prisma
+      - kanban-data:/app/data
     restart: unless-stopped
+
+volumes:
+  kanban-data:
