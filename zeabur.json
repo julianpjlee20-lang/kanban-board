@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.zeabur.com/schema.json",
+  "build": {
+    "engine": "docker",
+    "dockerfile": "Dockerfile"
+  },
+  "packages": {
+    "service": {
+      "name": "kanban-zeabur"
+    }
+  }
+}

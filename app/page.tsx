@@ -17,8 +17,9 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { Plus, X, Calendar, User, Flag, Paperclip, CheckSquare, Square } from 'lucide-react'
+import { Plus, X, Calendar, User, Flag, Paperclip, CheckSquare, Square, LogOut } from 'lucide-react'
 import { cn, getPriorityColor, getStatusColor } from '@/lib/utils'
+import { useSession } from '@/components/session-provider'
 
 type Task = {
   id: string
@@ -41,14 +42,22 @@ type UserData = { id: string; name: string }
 const COLUMNS = ['待辦', '進行中', '審核', '完成']
 
 export default function KanbanPage() {
+  const { user, loading: sessionLoading, signIn, signUp, signOut } = useSession()
   const [tasks, setTasks] = useState<Task[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [users, setUsers] = useState<UserData[]>([])
-  const [currentUser, setCurrentUser] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [showNewTask, setShowNewTask] = useState<string | null>(null)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+
+  // Auth states
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authName, setAuthName] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -70,14 +79,27 @@ export default function KanbanPage() {
   }, [])
 
   useEffect(() => {
-    const saved = localStorage.getItem('kanban-user')
-    if (saved) setCurrentUser(saved)
-    fetchData()
-  }, [fetchData])
+    if (user) {
+      fetchData()
+    }
+  }, [user, fetchData])
 
-  const handleLogin = (name: string) => {
-    setCurrentUser(name)
-    localStorage.setItem('kanban-user', name)
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setAuthError('')
+    setAuthLoading(true)
+
+    try {
+      if (authMode === 'signin') {
+        await signIn(authEmail, authPassword)
+      } else {
+        await signUp(authName, authEmail, authPassword)
+      }
+    } catch (error: any) {
+      setAuthError(error.message)
+    } finally {
+      setAuthLoading(false)
+    }
   }
 
   const handleCreateProject = async (name: string) => {
@@ -178,41 +200,95 @@ export default function KanbanPage() {
     fetchData()
   }
 
-  if (!currentUser) {
+  // Loading state
+  if (sessionLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-gray-400">載入中...</div>
+      </div>
+    )
+  }
+
+  // Auth form
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="bg-card p-8 rounded-lg w-96">
           <h1 className="text-2xl font-bold mb-6 text-center">登入看板</h1>
-          <div className="space-y-4">
+          
+          {authError && (
+            <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded text-red-400 text-sm">
+              {authError}
+            </div>
+          )}
+
+          <form onSubmit={handleAuth} className="space-y-4">
+            {authMode === 'signup' && (
+              <div>
+                <label className="block text-sm mb-2 text-gray-400">名稱</label>
+                <input
+                  type="text"
+                  value={authName}
+                  onChange={(e) => setAuthName(e.target.value)}
+                  className="w-full bg-background border border-border rounded px-3 py-2 focus:outline-none focus:border-primary"
+                  placeholder="你的名字"
+                  required
+                />
+              </div>
+            )}
             <div>
-              <label className="block text-sm mb-2 text-gray-400">選擇或輸入名稱</label>
+              <label className="block text-sm mb-2 text-gray-400">Email</label>
               <input
-                type="text"
-                list="users"
+                type="email"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
                 className="w-full bg-background border border-border rounded px-3 py-2 focus:outline-none focus:border-primary"
-                placeholder="輸入你的名字"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    const value = (e.target as HTMLInputElement).value
-                    if (value) handleLogin(value)
-                  }
-                }}
+                placeholder="your@email.com"
+                required
               />
-              <datalist id="users">
-                {users.map((u) => (
-                  <option key={u.id} value={u.name} />
-                ))}
-              </datalist>
+            </div>
+            <div>
+              <label className="block text-sm mb-2 text-gray-400">密碼</label>
+              <input
+                type="password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                className="w-full bg-background border border-border rounded px-3 py-2 focus:outline-none focus:border-primary"
+                placeholder="••••••••"
+                required
+              />
             </div>
             <button
-              onClick={() => {
-                const input = document.querySelector('input') as HTMLInputElement
-                if (input?.value) handleLogin(input.value)
-              }}
-              className="w-full bg-primary hover:bg-primaryHover text-white py-2 rounded transition-colors"
+              type="submit"
+              disabled={authLoading}
+              className="w-full bg-primary hover:bg-primaryHover disabled:opacity-50 text-white py-2 rounded transition-colors"
             >
-              登入
+              {authLoading ? '處理中...' : authMode === 'signin' ? '登入' : '註冊'}
             </button>
+          </form>
+
+          <div className="mt-4 text-center text-sm text-gray-400">
+            {authMode === 'signin' ? (
+              <>
+                還沒有帳號？{' '}
+                <button
+                  onClick={() => { setAuthMode('signup'); setAuthError('') }}
+                  className="text-primary hover:underline"
+                >
+                  註冊
+                </button>
+              </>
+            ) : (
+              <>
+                已經有帳號？{' '}
+                <button
+                  onClick={() => { setAuthMode('signin'); setAuthError('') }}
+                  className="text-primary hover:underline"
+                >
+                  登入
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -226,11 +302,12 @@ export default function KanbanPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">公司內部看板</h1>
         <div className="flex items-center gap-4">
-          <span className="text-gray-400">登入為：{currentUser}</span>
+          <span className="text-gray-400">登入為：{user.name || user.email}</span>
           <button
-            onClick={() => setCurrentUser(null)}
-            className="text-sm text-gray-400 hover:text-white"
+            onClick={signOut}
+            className="flex items-center gap-2 text-sm text-gray-400 hover:text-white"
           >
+            <LogOut size={16} />
             登出
           </button>
         </div>

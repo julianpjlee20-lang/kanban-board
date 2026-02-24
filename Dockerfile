@@ -22,24 +22,15 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV DATABASE_URL=file:/app/data/dev.db
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Install libssl for Prisma
-RUN apk add --no-cache openssl
-
-# Create data directory for SQLite
-RUN mkdir -p /app/data && chown -R nextjs:nodejs /app
-
-# Copy as root first
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
 
-# Then fix ownership
 RUN chown -R nextjs:nodejs /app
 
 USER nextjs
