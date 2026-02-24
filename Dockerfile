@@ -2,7 +2,7 @@ FROM node:18-alpine AS base
 
 # Install dependencies
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
@@ -26,6 +26,9 @@ ENV DATABASE_URL=file:/app/data/dev.db
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
+
+# Install libssl for Prisma
+RUN apk add --no-cache openssl
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app
